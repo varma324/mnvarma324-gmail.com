@@ -1,0 +1,49 @@
+# Databricks notebook source
+from pyspark.sql.functions import current_timestamp, lit
+from pyspark.sql.types import *
+from pyspark.dbutils import DBUtils
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.getOrCreate()
+dbutils = DBUtils(spark)
+
+# COMMAND ----------
+
+# Create widgets for input parameters
+dbutils.widgets.text("file_name", "", "File Name")
+dbutils.widgets.text("file_format", "", "File Format")
+
+
+# Retrieve values from widgets
+file_name = dbutils.widgets.get("file_name")
+file_format = dbutils.widgets.get("file_format")
+#file_name= "abfss://landing@dbxlhws.dfs.core.windows.net/sourcefiles/raw_roads/raw_roads1.csv"
+# Continue with your existing code to mount and read data
+
+# COMMAND ----------
+
+df = spark.read.format(file_format).option("header", "true").option("inferSchema", "true").load(file_name)
+df.createOrReplaceTempView("raw_roads")
+
+df_with_audit = spark.sql(
+    "SELECT `Road ID` AS Road_ID, \
+    `Road category id` AS Road_Category_Id, \
+    `Road category` AS Road_Category, \
+    `Region id` AS Region_ID, \
+    `Region name` AS Region_Name, \
+    `Total link length km` AS Total_Link_Length_Km, \
+    `Total link length miles` AS Total_Link_Length_Miles, \
+    `All motor vehicles` AS All_Motor_Vehicles, \
+    current_date() AS Loaddate, \
+    'ETL' AS Load_ID \
+    FROM raw_roads"
+)
+
+#df_with_audit = df.withColumn("startdate", current_timestamp()).withColumn("inserted_by", lit("etl"))
+
+
+# Assuming df is your DataFrame
+df_with_audit.write.format("delta") \
+    .mode("append") \
+    .option("mergeSchema", "true") \
+    .saveAsTable("main.bronze.raw_roads")
