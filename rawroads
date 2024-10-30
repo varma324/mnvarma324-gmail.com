@@ -1,13 +1,12 @@
-# Databricks notebook source
+#rawroads
 from pyspark.sql.functions import current_timestamp, lit
 from pyspark.sql.types import *
 from pyspark.dbutils import DBUtils
 from pyspark.sql import SparkSession
+from uuid import uuid4
 
 spark = SparkSession.builder.getOrCreate()
 dbutils = DBUtils(spark)
-
-# COMMAND ----------
 
 # Create widgets for input parameters
 dbutils.widgets.text("file_name", "", "File Name")
@@ -20,7 +19,6 @@ file_format = dbutils.widgets.get("file_format")
 #file_name= "abfss://landing@dbxlhws.dfs.core.windows.net/sourcefiles/raw_roads/raw_roads1.csv"
 # Continue with your existing code to mount and read data
 
-# COMMAND ----------
 
 df = spark.read.format(file_format).option("header", "true").option("inferSchema", "true").load(file_name)
 df.createOrReplaceTempView("raw_roads")
@@ -35,7 +33,7 @@ df_with_audit = spark.sql(
     `Total link length miles` AS Total_Link_Length_Miles, \
     `All motor vehicles` AS All_Motor_Vehicles, \
     current_date() AS Loaddate, \
-    'ETL' AS Load_ID \
+     uuid() AS Load_ID \
     FROM raw_roads"
 )
 
