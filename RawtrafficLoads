@@ -1,0 +1,64 @@
+# RawtrafficLoads
+
+from pyspark.sql.functions import current_timestamp, lit
+from pyspark.sql.types import *
+from pyspark.dbutils import DBUtils
+from pyspark.sql import SparkSession
+from uuid import uuid4
+from pyspark.sql.functions import current_date
+
+spark = SparkSession.builder.getOrCreate()
+dbutils = DBUtils(spark)
+
+
+# Create widgets for input parameters
+dbutils.widgets.text("file_name", "", "file_name")
+dbutils.widgets.text("file_format", "", "file_format")
+Loaddate = str(current_date())
+load_id = str(uuid4())
+
+
+# Retrieve values from widgets
+file_name = dbutils.widgets.get("file_name")
+file_format = dbutils.widgets.get("file_format")
+#file_name= "abfss://landing@dbxlhws.dfs.core.windows.net/sourcefiles/raw_traffic/raw_traffic1.csv"
+#file_format="csv"
+# Continue with your existing code to mount and read data
+
+df = spark.read.format(file_format).option("header", "true").option("inferSchema", "true").load(file_name)
+df.createOrReplaceTempView("traffic")
+
+df_with_audit = spark.sql(
+                          "SELECT `Record ID` AS Record_Id, \
+                          `Count point id` AS	Count_PointId, \
+                          `Direction of travel`		AS	Direction_Of_Travel, \
+                          `Year`		AS	Year, \
+                          `Count date`		AS	Count_Date, \
+                          `hour`		AS	Hour, \
+                          `Region id`		AS	Region_Id, \
+                          `Region name`		AS	Region_Name, \
+                          `Local authority name`		AS	Local_Authority_Name, \
+                          `Road name`		AS	Road_Name, \
+                          `Road Category ID`		AS	Road_Category_Id, \
+                          `Start junction road name`		AS	Start_Junction_Road_Name, \
+                          `End junction road name`		AS	End_Junction_Road_Name, \
+                          `Latitude`		AS	Latitude, \
+                          `Longitude`		AS	Longitude, \
+                          `Link length km`		AS	Link_Length_Km, \
+                          `Pedal cycles`		AS	Pedal_Cycles, \
+                          `Two wheeled motor vehicles`	AS	Two_Wheeled_Motor_Vehicles, \
+                          `Cars and taxis`		AS	Cars_And_Taxis, \
+                          `Buses and coaches`		AS	Buses_And_Coaches, \
+                          `LGV Type`		AS	LGV_Type, \
+                          `HGV Type`		AS	HGV_Type, \
+                          `EV Car`		AS	EV_Car, \
+                          `EV Bike`		AS	EV_Bike,\
+                           current_date() AS Loaddate, \
+                           'ETL' AS Load_ID \
+                        FROM traffic")
+
+# Assuming df is your DataFrame
+df_with_audit.write.format("delta") \
+     .mode("append") \
+     .option("mergeSchema", "true") \
+     .saveAsTable("main.bronze.raw_traffic")
